@@ -10,8 +10,10 @@
 //! - <https://developer.arm.com/documentation/ddi0183/latest>
 
 use crate::{
-    bsp::device_driver::common::MMIODerefWrapper, console, cpu, driver, synchronization,
-    synchronization::NullLock,
+    bsp::device_driver::common::MMIODerefWrapper,
+    console::{self},
+    cpu, driver,
+    synchronization::{self, NullLock},
 };
 use core::fmt;
 use tock_registers::{
@@ -179,7 +181,7 @@ struct PL011UartInner {
 
 /// Representation of the UART.
 pub struct PL011Uart {
-    inner: NullLock<PL011UartInner>,
+    pub(crate) inner: NullLock<PL011UartInner>,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -354,41 +356,6 @@ impl driver::interface::DeviceDriver for PL011Uart {
     }
 }
 
-impl console::interface::Write for PL011Uart {
-    /// Passthrough of `args` to the `core::fmt::Write` implementation, but guarded by a Mutex to
-    /// serialize access.
-    /*
-    fn write_char(&self, c: char) {
-        let mut buf = [0u8; 4];
-        let s = c.encode_utf8(&mut buf);
-        let ns = s.bytes().count();
-        if ns > 1 {
-            for b in s.bytes() {
-                self.inner.lock(|inner| inner.write_str(b));
-            }
-        } else {
-            assert_eq!(ns, 1);
-            self.inner.lock(|inner| inner.write_char(b[0]))
-        }
-    }
-    */
-
-    fn write_char(&self, c: u8) {
-        self.inner.lock(|inner| inner.write_char(c))
-    }
-
-    fn write_fmt(&self, args: core::fmt::Arguments) -> fmt::Result {
-        // Fully qualified syntax for the call to `core::fmt::Write::write_fmt()` to increase
-        // readability.
-        self.inner.lock(|inner| fmt::Write::write_fmt(inner, args))
-    }
-
-    fn flush(&self) {
-        // Spin until TX FIFO empty is set.
-        self.inner.lock(|inner| inner.flush());
-    }
-}
-
 impl console::interface::Read for PL011Uart {
     fn read_char(&self) -> u8 {
         self.inner
@@ -414,5 +381,3 @@ impl console::interface::Statistics for PL011Uart {
         self.inner.lock(|inner| inner.chars_read)
     }
 }
-
-impl console::interface::All for PL011Uart {}

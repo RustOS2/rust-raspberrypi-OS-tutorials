@@ -110,10 +110,10 @@
 #![no_main]
 #![no_std]
 
+use synchronization::interface::Mutex;
+
 #[cfg(not(any(feature = "bsp_rpi3", feature = "bsp_rpi4")))]
-compile_error!(
-    "Either feature \"bsp_rpi3\" or \"bsp_rpi4\" must be enabled for this crate.",
-);
+compile_error!("Either feature \"bsp_rpi3\" or \"bsp_rpi4\" must be enabled for this crate.",);
 
 mod bsp;
 mod console;
@@ -145,8 +145,6 @@ unsafe fn kernel_init() -> ! {
 
 /// The main function running after the early init.
 fn kernel_main() -> ! {
-    use console::console;
-
     println!(
         "[0] {} version {}",
         env!("CARGO_PKG_NAME"),
@@ -157,16 +155,21 @@ fn kernel_main() -> ! {
     println!("[2] Drivers loaded:");
     driver::driver_manager().enumerate();
 
-    println!("[3] Chars written: {}", console().chars_written());
+    println!(
+        "[3] Chars written: {}",
+        console::CUR_CONSOLE.lock(|c| c.chars_written())
+    );
     println!("[4] Echoing input now");
 
     // Discard any spurious received characters before going into echo mode.
-    console().clear_rx();
-    loop {
-        let c = console().read_char();
-        console().write_char(c);
-        if c == b'\r' {
-            console().write_char(b'\n');
+    console::CUR_CONSOLE.lock(|console| {
+        console.clear_rx();
+        loop {
+            let c = console.read_char();
+            console.write_byte(c);
+            if c == b'\r' {
+                console.write_byte(b'\n');
+            }
         }
-    }
+    })
 }

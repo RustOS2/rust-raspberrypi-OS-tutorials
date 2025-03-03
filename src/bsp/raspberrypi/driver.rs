@@ -22,7 +22,7 @@ static GPIO: device_driver::GPIO = unsafe { device_driver::GPIO::new(mmio::GPIO_
 
 /// This must be called only after successful init of the UART driver.
 fn post_init_uart() -> Result<(), &'static str> {
-    console::register_console(&PL011_UART);
+    console::register_console(&PL011_UART.inner);
 
     Ok(())
 }

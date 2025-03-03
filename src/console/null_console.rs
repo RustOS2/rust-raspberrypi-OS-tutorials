@@ -4,12 +4,16 @@
 
 //! Null console.
 
-use super::interface;
+use crate::synchronization::NullLock;
+
+use super::interface::{self, ConsoleWrite};
 use core::fmt;
 
 //--------------------------------------------------------------------------------------------------
 // Public Definitions
 //--------------------------------------------------------------------------------------------------
+
+pub struct SharedNullConsole(NullLock<NullConsole>);
 
 pub struct NullConsole;
 
@@ -17,20 +21,25 @@ pub struct NullConsole;
 // Global instances
 //--------------------------------------------------------------------------------------------------
 
-pub static NULL_CONSOLE: NullConsole = NullConsole {};
+pub static mut NULL_CONSOLE: NullConsole = NullConsole;
 
 //--------------------------------------------------------------------------------------------------
 // Public Code
 //--------------------------------------------------------------------------------------------------
 
-impl interface::Write for NullConsole {
-    fn write_char(&self, _c: u8) {}
-
-    fn write_fmt(&self, _args: fmt::Arguments) -> fmt::Result {
-        fmt::Result::Ok(())
-    }
+impl interface::ConsoleWrite for NullConsole {
+    fn write_byte(&mut self, _c: u8) {}
 
     fn flush(&self) {}
+}
+
+impl core::fmt::Write for NullConsole {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for byte in s.bytes() {
+            self.write_byte(byte);
+        }
+        Ok(())
+    }
 }
 
 impl interface::Read for NullConsole {
@@ -38,4 +47,4 @@ impl interface::Read for NullConsole {
 }
 
 impl interface::Statistics for NullConsole {}
-impl interface::All for NullConsole {}
+impl interface::Console for NullConsole {}

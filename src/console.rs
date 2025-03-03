@@ -16,13 +16,14 @@ use crate::synchronization::{self, NullLock};
 pub mod interface {
     use core::fmt;
 
-    /// Console write functions.
-    pub trait Write {
-        /// Write a single character.
-        fn write_char(&self, c: u8);
+    pub trait SharedConsole {
+        fn lock<R>(&self, f: impl FnOnce(&mut dyn ConsoleWrite) -> R) -> R;
+    }
 
-        /// Write a Rust format string.
-        fn write_fmt(&self, args: fmt::Arguments) -> fmt::Result;
+    /// Console write functions.
+    pub trait ConsoleWrite: fmt::Write {
+        /// Write a single character.
+        fn write_byte(&mut self, c: u8);
 
         /// Block until the last buffered character has been physically put on the TX wire.
         #[allow(unused)]
@@ -55,15 +56,15 @@ pub mod interface {
     }
 
     /// Trait alias for a full-fledged console.
-    pub trait All: Write + Read + Statistics {}
+    pub trait Console: ConsoleWrite + Read + Statistics {}
 }
 
 //--------------------------------------------------------------------------------------------------
 // Global instances
 //--------------------------------------------------------------------------------------------------
 
-static CUR_CONSOLE: NullLock<&'static (dyn interface::All + Sync)> =
-    NullLock::new(&null_console::NULL_CONSOLE);
+pub static CUR_CONSOLE: NullLock<&'static mut (dyn interface::Console + Send)> =
+    NullLock::new(unsafe { &mut null_console::NULL_CONSOLE });
 
 //--------------------------------------------------------------------------------------------------
 // Public Code
@@ -71,13 +72,6 @@ static CUR_CONSOLE: NullLock<&'static (dyn interface::All + Sync)> =
 use synchronization::interface::Mutex;
 
 /// Register a new console.
-pub fn register_console(new_console: &'static (dyn interface::All + Sync)) {
+pub fn register_console(new_console: &'static mut (dyn interface::Console + Send)) {
     CUR_CONSOLE.lock(|con| *con = new_console);
-}
-
-/// Return a reference to the currently registered console.
-///
-/// This is the global console used by all printing macros.
-pub fn console() -> &'static dyn interface::All {
-    CUR_CONSOLE.lock(|con| *con)
 }
